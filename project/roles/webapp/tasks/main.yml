@@ -1,0 +1,63 @@
+---
+- name: Убедиться, что Docker установлен (Debian/Ubuntu)
+  apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Проверить, установлен ли Docker Compose
+  stat:
+    path: /usr/local/bin/socker-compose
+  register: docker_compose_installed
+
+- name: Установить Docker Compose
+  get_url:
+    url: "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-{{ ansible_system | lower }}-{{ ansible_architecture }}"
+    dest: /usr/local/bin/docker-compose
+    mode: '0755'
+  when: not docker_compose_installed.stat.exists
+
+- name: Создать директорию для приложения
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Копировать файлы приложения
+  copy:
+    src: "../app/"
+    dest: "{{ app_dir }}/"
+    owner: www-data
+    group: www-data
+    mode: '0644'
+    recurse: yes
+
+- name: Генерировать Dockerfile
+  template:
+    src: "Dockerfile.j2"
+    dest: "{{ app_dir }}/Dockerfile"
+  register: dockerfile_changed
+
+- name: Генерировать docker-compose.yml
+  template:
+    src: "docker-compose.yml.j2"
+    dest: "{{ docker_compose_file }}"
+  # notify:
+  #   - Перезапустить Docker Compose
+  register: docker_compose_file_changed
+
+- name: Генерировать конфигурационный файл Nginx
+  template:
+    src: "nginx.conf.j2"
+    dest: "{{ app_dir }}/nginx.conf"
+  # notify:
+  #   - Перезапустить Docker Compose
+  register: nginx_conf_file_changed
+
+- name: Запустить Docker Compose
+  command: docker-compose up -d
+  args:
+    chdir: "{{ app_dir }}"

@@ -1,0 +1,11 @@
+---
+- name: Развёртывание Dockerизированного веб-приложения
+  hosts: webservers
+  become: true
+
+  vars:
+    app_dir: /var/www/myapp
+    docker_compose_file: "{{ app_dir }}/docker-compose.yml"
+
+  roles:
+    - webapp
